@@ -1,0 +1,54 @@
+name: ⬇️ Download Telegram Post
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'لینک پست تلگرام (مثال: https://t.me/channelname/123)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Download post
+        run: |
+          python scripts/public_channels_downloader.py \
+            --url "${{ github.event.inputs.url }}"
+
+      - name: Check output
+        run: |
+          if [ -z "$(ls -A downloads/ 2>/dev/null)" ]; then
+            echo "❌ No files downloaded"
+            exit 1
+          fi
+          echo "✅ Downloaded files:"
+          find downloads/ -type f | sort
+
+      - name: Commit to repo
+        run: |
+          git config user.name "TG Mirror Bot"
+          git config user.email "bot@tgmirror.local"
+          git add downloads/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "⬇️ Download — $(date +'%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
